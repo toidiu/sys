@@ -3,9 +3,9 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
-use sysinfo::Pid;
-use sysinfo::PidExt;
 use sysinfo::{self, System, SystemExt};
+use sysinfo::{CpuExt, PidExt};
+use sysinfo::{CpuRefreshKind, Pid};
 use sysinfo::{NetworkExt, ProcessExt};
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
@@ -13,21 +13,23 @@ pub type Error = Box<dyn std::error::Error>;
 
 #[derive(Debug, StructOpt)]
 pub struct Args {
-    pub cmd: String,
+    pub cmd: Option<String>,
 }
 
 fn main() {
     let args = Args::from_args();
 
-    println!("Hello, world! {}", args.cmd);
+    println!("Hello, world! {:?}", args.cmd);
     run(args).unwrap();
 }
 
 fn run(args: Args) -> Result<()> {
-    let mut command = Command::new(&args.cmd);
-    let mut proc = command.spawn()?;
+    let proc = args.cmd.map(|cmd| {
+        let mut command = Command::new(cmd);
+        command.spawn().unwrap()
+    });
 
-    let mut stats = Stats::new(proc.id());
+    let mut stats = Stats::new(proc.as_ref().map(|p| p.id()));
 
     let is_running = Arc::new(AtomicBool::new(true));
     let is_running_handle = is_running.clone();
@@ -36,8 +38,10 @@ fn run(args: Args) -> Result<()> {
         stats.collect(is_running_handle);
     });
 
-    proc.wait()?;
-    is_running.store(false, Ordering::Relaxed);
+    if proc.is_some() {
+        proc.unwrap().wait()?;
+        is_running.store(false, Ordering::Relaxed);
+    }
 
     let _ = handle.join();
 
@@ -45,14 +49,15 @@ fn run(args: Args) -> Result<()> {
 }
 
 struct Stats {
-    pid: sysinfo::Pid,
+    pid: Option<sysinfo::Pid>,
     system: System,
 }
 
 impl Stats {
-    fn new(pid: u32) -> Self {
+    fn new(pid: Option<u32>) -> Self {
+        let pid = pid.map(Pid::from_u32);
         Self {
-            pid: Pid::from_u32(pid),
+            pid,
             system: System::new(),
         }
     }
@@ -75,17 +80,18 @@ impl Stats {
     }
 
     fn get_cpu(&mut self, info: &mut StatInfo) {
-        // Refreshing CPU information.
-        // self.system
-        // .refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+        if let Some(pid) = self.pid {
+            self.system
+                .refresh_process_specifics(pid, sysinfo::ProcessRefreshKind::new().with_cpu());
 
-        self.system
-            .refresh_process_specifics(self.pid, sysinfo::ProcessRefreshKind::new().with_cpu());
-
-        if let Some(p) = self.system.process(self.pid) {
-            info.cpu = p.cpu_usage();
+            if let Some(p) = self.system.process(pid) {
+                info.cpu = p.cpu_usage();
+            }
         } else {
-            println!("----------cant find");
+            // Refreshing CPU information.
+            self.system
+                .refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+            info.cpu = self.system.global_cpu_info().cpu_usage();
         }
     }
 
@@ -105,13 +111,13 @@ impl Stats {
 
 #[derive(Debug)]
 struct StatInfo {
-    pid: sysinfo::Pid,
+    pid: Option<Pid>,
     cpu: f32,
     net: Vec<NetworkStatInfo>,
 }
 
 impl StatInfo {
-    fn new(pid: sysinfo::Pid) -> Self {
+    fn new(pid: Option<Pid>) -> Self {
         StatInfo {
             pid,
             cpu: 0.0,
@@ -122,7 +128,11 @@ impl StatInfo {
 
 impl Display for StatInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}, ", &self.pid))?;
+        if let Some(pid) = self.pid {
+            f.write_fmt(format_args!("{}, ", &pid))?;
+        } else {
+            f.write_str("global ")?;
+        }
         f.write_fmt(format_args!("{}| ", &self.cpu))?;
         for net in &self.net {
             f.write_fmt(format_args!("{} {} {}| ", net.name, net.rx, net.tx))?;
