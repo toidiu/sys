@@ -14,19 +14,21 @@ pub type Error = Box<dyn std::error::Error>;
 #[derive(Debug, StructOpt)]
 pub struct Args {
     pub cmd: Option<String>,
+    #[structopt(short = "a", long)]
+    pub cmd_args: Vec<String>,
 }
 
 fn main() {
     let args = Args::from_args();
 
-    println!("Hello, world! {:?}", args.cmd);
+    println!("Hello, world! {:?} {:?}", args.cmd, args.cmd_args);
     run(args).unwrap();
 }
 
 fn run(args: Args) -> Result<()> {
     let proc = args.cmd.map(|cmd| {
-        let mut command = Command::new(cmd);
-        command.spawn().unwrap()
+        let command = Command::new(cmd).args(args.cmd_args).spawn().unwrap();
+        command
     });
 
     let mut stats = Stats::new(proc.as_ref().map(|p| p.id()));
