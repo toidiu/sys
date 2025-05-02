@@ -14,11 +14,14 @@ pub type Error = Box<dyn std::error::Error>;
 
 #[derive(Debug, StructOpt, Clone)]
 pub struct Args {
+    /// Command to run.
     pub cmd: Option<String>,
 
+    /// Args for the command.
     #[structopt(short = "a", long)]
     pub cmd_args: Vec<String>,
 
+    /// Specify the network interface name to only emit stats for that interface.
     #[structopt(short = "n", long)]
     pub network_interface: Option<String>,
 }
