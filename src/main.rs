@@ -76,7 +76,7 @@ impl Stats {
     }
 
     fn collect(&mut self, is_running: Arc<AtomicBool>, args: Args) {
-        println!("ts, pid, [[net, rx, tx], ...]");
+        println!("elapsed_ms, pid, [[net, rx, tx], ...]");
 
         self.system.refresh_networks_list();
         loop {
@@ -134,7 +134,7 @@ impl Stats {
 
 #[derive(Debug)]
 struct StatInfo {
-    ts_sec: Instant,
+    start_ts: Instant,
     pid: Option<Pid>,
     cpu: f32,
     net: Vec<NetworkStatInfo>,
@@ -143,7 +143,7 @@ struct StatInfo {
 impl StatInfo {
     fn new(pid: Option<Pid>, ts: Instant) -> Self {
         StatInfo {
-            ts_sec: ts,
+            start_ts: ts,
             pid,
             cpu: 0.0,
             net: Vec::new(),
@@ -154,7 +154,7 @@ impl StatInfo {
 impl Display for StatInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TS
-        f.write_fmt(format_args!("{}, ", &self.ts_sec.elapsed().as_secs()))?;
+        f.write_fmt(format_args!("{}, ", &self.start_ts.elapsed().as_millis()))?;
 
         // PID
         if let Some(pid) = self.pid {
