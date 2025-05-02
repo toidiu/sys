@@ -1,3 +1,4 @@
+use std::time::Instant;
 use std::fmt::Display;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -58,6 +59,7 @@ fn run(args: Args) -> Result<()> {
 struct Stats {
     pid: Option<sysinfo::Pid>,
     system: System,
+    start_ts: Instant
 }
 
 impl Stats {
@@ -66,13 +68,16 @@ impl Stats {
         Self {
             pid,
             system: System::new(),
+            start_ts: Instant::now(),
         }
     }
 
     fn collect(&mut self, is_running: Arc<AtomicBool>, args: Args) {
+        println!("ts, pid, [[net, rx, tx], ...]");
+
         self.system.refresh_networks_list();
         loop {
-            let mut info = StatInfo::new(self.pid);
+            let mut info = StatInfo::new(self.pid, self.start_ts);
             self.get_cpu(&mut info);
             self.get_net(&mut info, &args);
 
@@ -83,7 +88,8 @@ impl Stats {
                 return;
             }
 
-            std::thread::sleep(std::time::Duration::from_millis(1000));
+            let sleep_duration = std::time::Duration::from_millis(1000);
+            std::thread::sleep(sleep_duration);
         }
     }
 
@@ -125,14 +131,16 @@ impl Stats {
 
 #[derive(Debug)]
 struct StatInfo {
+    ts_sec: Instant,
     pid: Option<Pid>,
     cpu: f32,
     net: Vec<NetworkStatInfo>,
 }
 
 impl StatInfo {
-    fn new(pid: Option<Pid>) -> Self {
+    fn new(pid: Option<Pid>, ts: Instant) -> Self {
         StatInfo {
+            ts_sec: ts,
             pid,
             cpu: 0.0,
             net: Vec::new(),
@@ -142,6 +150,9 @@ impl StatInfo {
 
 impl Display for StatInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // TS
+        f.write_fmt(format_args!("{}, ", &self.ts_sec.elapsed().as_secs()))?;
+
         // PID
         if let Some(pid) = self.pid {
             f.write_fmt(format_args!("{}, ", &pid))?;
