@@ -11,21 +11,26 @@ use sysinfo::{NetworkExt, ProcessExt};
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 pub type Error = Box<dyn std::error::Error>;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, StructOpt, Clone)]
 pub struct Args {
     pub cmd: Option<String>,
+
     #[structopt(short = "a", long)]
     pub cmd_args: Vec<String>,
+
+    #[structopt(short = "n", long)]
+    pub network_interface: Option<String>,
 }
 
 fn main() {
     let args = Args::from_args();
 
-    println!("Hello, world! {:?} {:?}", args.cmd, args.cmd_args);
+    println!("Command: {:?} {:?}", args.cmd, args.cmd_args);
     run(args).unwrap();
 }
 
 fn run(args: Args) -> Result<()> {
+    let arg_clone = args.clone();
     let proc = args.cmd.map(|cmd| {
         let command = Command::new(cmd).args(args.cmd_args).spawn().unwrap();
         command
@@ -37,7 +42,7 @@ fn run(args: Args) -> Result<()> {
     let is_running_handle = is_running.clone();
 
     let handle = std::thread::spawn(move || {
-        stats.collect(is_running_handle);
+        stats.collect(is_running_handle, arg_clone);
     });
 
     if proc.is_some() {
@@ -64,13 +69,14 @@ impl Stats {
         }
     }
 
-    fn collect(&mut self, is_running: Arc<AtomicBool>) {
+    fn collect(&mut self, is_running: Arc<AtomicBool>, args: Args) {
         self.system.refresh_networks_list();
         loop {
             let mut info = StatInfo::new(self.pid);
             self.get_cpu(&mut info);
-            self.get_net(&mut info);
+            self.get_net(&mut info, &args);
 
+            // Print the stats info each round
             println!("{}", info);
 
             if !is_running.load(Ordering::Relaxed) {
@@ -97,10 +103,16 @@ impl Stats {
         }
     }
 
-    fn get_net(&mut self, info: &mut StatInfo) {
+    fn get_net(&mut self, info: &mut StatInfo, args: &Args) {
         self.system.refresh_networks();
 
         for (interface_name, network) in self.system.networks() {
+            if let Some(net_name) = &args.network_interface {
+                if interface_name != net_name {
+                    continue;
+                }
+            }
+
             let net = NetworkStatInfo::new(
                 interface_name.to_string(),
                 network.received(),
@@ -130,14 +142,19 @@ impl StatInfo {
 
 impl Display for StatInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // PID
         if let Some(pid) = self.pid {
             f.write_fmt(format_args!("{}, ", &pid))?;
         } else {
             f.write_str("global ")?;
         }
-        f.write_fmt(format_args!("{}| ", &self.cpu))?;
+
+        // CPU
+        f.write_fmt(format_args!("{}, ", &self.cpu))?;
+
+        // NET
         for net in &self.net {
-            f.write_fmt(format_args!("{} {} {}| ", net.name, net.rx, net.tx))?;
+            f.write_fmt(format_args!("{}, {}, {}, ", net.name, net.rx, net.tx))?;
         }
 
         Ok(())
