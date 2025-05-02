@@ -76,7 +76,7 @@ impl Stats {
     }
 
     fn collect(&mut self, is_running: Arc<AtomicBool>, args: Args) {
-        println!("elapsed_ms, pid, [[net, rx, tx], ...]");
+        println!("elapsed_ms, pid, cpu, [[net, rx, tx], ...]");
 
         self.system.refresh_networks_list();
         loop {
