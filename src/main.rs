@@ -69,7 +69,6 @@ struct StatContext {
     pid: Option<Pid>,
     system: System,
     start_ts: Instant,
-    samples: Vec<StatSample>,
 }
 
 impl StatContext {
@@ -79,7 +78,6 @@ impl StatContext {
             pid,
             system: System::new(),
             start_ts: Instant::now(),
-            samples: Vec::new(),
         }
     }
 
@@ -98,7 +96,6 @@ impl StatContext {
             if args.print {
                 println!("{}", &info);
             }
-            self.samples.push(info);
 
             if !is_running.load(Ordering::Relaxed) {
                 return;
@@ -147,7 +144,7 @@ impl StatContext {
 
 #[derive(Debug)]
 struct StatSample {
-    start_ts: Instant,
+    ts_ms: Instant,
     pid: Option<Pid>,
     cpu: f32,
     net: Vec<NetworkStatInfo>,
@@ -156,18 +153,23 @@ struct StatSample {
 impl StatSample {
     fn new(pid: Option<Pid>, ts: Instant) -> Self {
         StatSample {
-            start_ts: ts,
+            ts_ms: ts,
             pid,
             cpu: 0.0,
             net: Vec::new(),
         }
+    }
+
+    // Time elapsed in millis
+    fn ts(&self) -> u128 {
+        self.ts_ms.elapsed().as_millis()
     }
 }
 
 impl Display for StatSample {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TS
-        f.write_fmt(format_args!("{}, ", &self.start_ts.elapsed().as_millis()))?;
+        f.write_fmt(format_args!("{}, ", &self.ts()))?;
 
         // PID
         if let Some(pid) = self.pid {
