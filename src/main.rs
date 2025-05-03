@@ -26,10 +26,6 @@ pub struct Args {
     /// Specify the network interface name to only emit stats for that interface.
     #[structopt(short = "n", long)]
     pub network_interface: Option<String>,
-
-    /// Print stats
-    #[structopt(short = "p", long)]
-    pub print: bool,
 }
 
 fn main() {
@@ -82,9 +78,7 @@ impl StatContext {
     }
 
     fn collect(&mut self, is_running: Arc<AtomicBool>, args: Args) {
-        if args.print {
-            println!("elapsed_ms, pid, cpu, [[net, rx, tx], ...]");
-        }
+        println!("elapsed_ms, pid, cpu, [[net, rx, tx], ...]");
 
         self.system.refresh_networks_list();
         loop {
@@ -93,9 +87,7 @@ impl StatContext {
             self.get_net(&mut info, &args);
 
             // Print the stats info each round
-            if args.print {
-                println!("{}", &info);
-            }
+            println!("{}", &info);
 
             if !is_running.load(Ordering::Relaxed) {
                 return;
