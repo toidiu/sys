@@ -1,4 +1,5 @@
-// use crate::parse_data::{SysGroup, SysStats};
+use crate::commands::NetworkStatInfo;
+use crate::commands::StatSample;
 use plotly::{
     color::Rgb, common::Marker, layout::GridPattern, layout::Layout, layout::LayoutGrid, Plot,
     Scatter,
@@ -40,33 +41,34 @@ use plotly::{
 //     }
 //     // println!("{}", plot.to_inline_html(Some("simple_subplot")));
 // }
-    // fn plot(&self) {
-    //     let mut plot = Plot::new();
 
-    //     // for stat in self.samples.iter() {
-    //     // TODO
-    //     // let name = stat.title.clone();
-    //     let name = "title";
+pub fn plot(samples: Vec<StatSample>) {
+    let mut plot = Plot::new();
 
-    //     let ts_ms = self.samples.iter().map(|sample| sample.ts()).collect();
-    //     let cpu = self.samples.iter().map(|sample| sample.cpu).collect();
-    //     let trace = Scatter::new(ts_ms, cpu).name(name).x_axis("x").y_axis("y");
-    //     plot.add_trace(trace);
-    //     // }
+    // for stat in self.samples.iter() {
+    // TODO
+    // let name = stat.title.clone();
+    let name = "title";
 
-    //     let layout = Layout::new()
-    //         // .title(format!("{} ({})", "title", "units").as_str().into())
-    //         .show_legend(true)
-    //         .height(1000)
-    //         .grid(
-    //             LayoutGrid::new()
-    //                 .rows(1)
-    //                 .columns(1)
-    //                 .pattern(GridPattern::Independent),
-    //         );
-    //     plot.set_layout(layout);
-    //     // if show {
-    //     plot.show();
-    //     // }
-    //     // println!("{}", plot.to_inline_html(Some("simple_subplot")));
+    let ts_ms = samples.iter().map(|sample| sample.ts()).collect();
+    let cpu = samples.iter().map(|sample| sample.cpu).collect();
+    let trace = Scatter::new(ts_ms, cpu).name(name).x_axis("x").y_axis("y");
+    plot.add_trace(trace);
     // }
+
+    let layout = Layout::new()
+        // .title(format!("{} ({})", "title", "units").as_str().into())
+        .show_legend(true)
+        .height(1000)
+        .grid(
+            LayoutGrid::new()
+                .rows(1)
+                .columns(1)
+                .pattern(GridPattern::Independent),
+        );
+    plot.set_layout(layout);
+    // if show {
+    plot.show();
+    // }
+    // println!("{}", plot.to_inline_html(Some("simple_subplot")));
+}
