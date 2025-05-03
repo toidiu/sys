@@ -60,7 +60,7 @@ impl StatContext {
 
         self.system.refresh_networks_list();
         loop {
-            let mut info = StatSample::new(self.pid, self.start_ts);
+            let mut info = StatSample::new(self.start_ts);
             self.get_cpu(&mut info);
             self.get_net(&mut info, &record_cmd);
 
