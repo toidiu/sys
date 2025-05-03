@@ -40,7 +40,7 @@ fn run(args: Args) -> Result<()> {
         command
     });
 
-    let mut stats = Stats::new(proc.as_ref().map(|p| p.id()));
+    let mut stats = StatContext::new(proc.as_ref().map(|p| p.id()));
 
     let is_running = Arc::new(AtomicBool::new(true));
     let is_running_handle = is_running.clone();
@@ -59,13 +59,13 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-struct Stats {
-    pid: Option<sysinfo::Pid>,
+struct StatContext {
+    pid: Option<Pid>,
     system: System,
     start_ts: Instant
 }
 
-impl Stats {
+impl StatContext {
     fn new(pid: Option<u32>) -> Self {
         let pid = pid.map(Pid::from_u32);
         Self {
@@ -80,7 +80,7 @@ impl Stats {
 
         self.system.refresh_networks_list();
         loop {
-            let mut info = StatInfo::new(self.pid, self.start_ts);
+            let mut info = StatSample::new(self.pid, self.start_ts);
             self.get_cpu(&mut info);
             self.get_net(&mut info, &args);
 
@@ -96,7 +96,7 @@ impl Stats {
         }
     }
 
-    fn get_cpu(&mut self, info: &mut StatInfo) {
+    fn get_cpu(&mut self, info: &mut StatSample) {
         if let Some(pid) = self.pid {
             self.system
                 .refresh_process_specifics(pid, sysinfo::ProcessRefreshKind::new().with_cpu());
@@ -112,7 +112,7 @@ impl Stats {
         }
     }
 
-    fn get_net(&mut self, info: &mut StatInfo, args: &Args) {
+    fn get_net(&mut self, info: &mut StatSample, args: &Args) {
         self.system.refresh_networks();
 
         for (interface_name, network) in self.system.networks() {
@@ -133,16 +133,16 @@ impl Stats {
 }
 
 #[derive(Debug)]
-struct StatInfo {
+struct StatSample {
     start_ts: Instant,
     pid: Option<Pid>,
     cpu: f32,
     net: Vec<NetworkStatInfo>,
 }
 
-impl StatInfo {
+impl StatSample {
     fn new(pid: Option<Pid>, ts: Instant) -> Self {
-        StatInfo {
+        StatSample {
             start_ts: ts,
             pid,
             cpu: 0.0,
@@ -151,7 +151,7 @@ impl StatInfo {
     }
 }
 
-impl Display for StatInfo {
+impl Display for StatSample {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TS
         f.write_fmt(format_args!("{}, ", &self.start_ts.elapsed().as_millis()))?;
