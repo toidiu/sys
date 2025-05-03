@@ -1,8 +1,8 @@
-use std::time::Instant;
 use std::fmt::Display;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 use structopt::StructOpt;
 use sysinfo::{self, System, SystemExt};
 use sysinfo::{CpuExt, PidExt};
@@ -11,6 +11,8 @@ use sysinfo::{NetworkExt, ProcessExt};
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 pub type Error = Box<dyn std::error::Error>;
+
+mod plot;
 
 #[derive(Debug, StructOpt, Clone)]
 pub struct Args {
@@ -24,6 +26,10 @@ pub struct Args {
     /// Specify the network interface name to only emit stats for that interface.
     #[structopt(short = "n", long)]
     pub network_interface: Option<String>,
+
+    /// Print stats
+    #[structopt(short = "p", long)]
+    pub print: bool,
 }
 
 fn main() {
@@ -62,7 +68,8 @@ fn run(args: Args) -> Result<()> {
 struct StatContext {
     pid: Option<Pid>,
     system: System,
-    start_ts: Instant
+    start_ts: Instant,
+    samples: Vec<StatSample>,
 }
 
 impl StatContext {
@@ -72,11 +79,14 @@ impl StatContext {
             pid,
             system: System::new(),
             start_ts: Instant::now(),
+            samples: Vec::new(),
         }
     }
 
     fn collect(&mut self, is_running: Arc<AtomicBool>, args: Args) {
-        println!("elapsed_ms, pid, cpu, [[net, rx, tx], ...]");
+        if args.print {
+            println!("elapsed_ms, pid, cpu, [[net, rx, tx], ...]");
+        }
 
         self.system.refresh_networks_list();
         loop {
@@ -85,7 +95,10 @@ impl StatContext {
             self.get_net(&mut info, &args);
 
             // Print the stats info each round
-            println!("{}", info);
+            if args.print {
+                println!("{}", &info);
+            }
+            self.samples.push(info);
 
             if !is_running.load(Ordering::Relaxed) {
                 return;
