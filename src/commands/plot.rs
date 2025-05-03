@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
-pub fn parse_data(plot_cmd: PlotCmd) -> Vec<StatSample> {
+pub fn read_samples(plot_cmd: PlotCmd) -> Vec<StatSample> {
     let file = File::open(&plot_cmd.file).unwrap();
 
     let mut samples = Vec::new();
@@ -25,20 +25,25 @@ pub fn plot(samples: Vec<StatSample>) {
     let mut plot = plotly::Plot::new();
 
     let ts_ms: Vec<u64> = samples.iter().map(|sample| sample.ts).collect();
-    let cpu = samples.iter().map(|sample| sample.cpu).collect();
-    let rx = samples.iter().map(|sample| sample.rx).collect();
-    let tx = samples.iter().map(|sample| sample.tx).collect();
 
+    // CPU
+    let cpu = samples.iter().map(|sample| sample.cpu).collect();
     let trace = Scatter::new(ts_ms.clone(), cpu)
         .name("cpu")
         .x_axis("x")
         .y_axis("y");
     plot.add_trace(trace);
+
+    // RX
+    let rx = samples.iter().map(|sample| sample.rx).collect();
     let trace = Scatter::new(ts_ms.clone(), rx)
         .name("rx")
         .x_axis("x")
         .y_axis("y");
     plot.add_trace(trace);
+
+    // TX
+    let tx = samples.iter().map(|sample| sample.tx).collect();
     let trace = Scatter::new(ts_ms, tx).name("tx").x_axis("x").y_axis("y");
     plot.add_trace(trace);
 

@@ -15,7 +15,7 @@ fn main() {
             commands::record::run(record).unwrap();
         }
         Commands::Plot(plot) => {
-            let samples = commands::plot::parse_data(plot);
+            let samples = commands::plot::read_samples(plot);
             commands::plot::plot(samples);
         }
     }
