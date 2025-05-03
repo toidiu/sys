@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 plotly = "0.12.1"
 serde = "1.0.219"
-structopt = "0.3.26"
+clap = { version = "4", features = ["derive"] }
 sysinfo = "0.26"

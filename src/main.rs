@@ -1,9 +1,9 @@
 use std::fmt::Display;
+use clap::Parser;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use structopt::StructOpt;
 use sysinfo::{self, System, SystemExt};
 use sysinfo::{CpuExt, PidExt};
 use sysinfo::{CpuRefreshKind, Pid};
@@ -14,31 +14,31 @@ pub type Error = Box<dyn std::error::Error>;
 
 mod plot;
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, Parser, Clone)]
 pub struct Args {
-    /// Command to run.
+    /// Command to run or collect entire system stats
     pub cmd: Option<String>,
 
     /// Args for the command.
-    #[structopt(short = "a", long)]
-    pub cmd_args: Vec<String>,
+    #[arg(short, long, requires="cmd")]
+    pub args: Vec<String>,
 
     /// Specify the network interface name to only emit stats for that interface.
-    #[structopt(short = "n", long)]
+    #[arg(short, long)]
     pub network_interface: Option<String>,
 }
 
 fn main() {
-    let args = Args::from_args();
+    let args = Args::parse();
 
-    println!("Command: {:?} {:?}", args.cmd, args.cmd_args);
+    println!("Command: {:?} {:?}", args.cmd, args.args);
     run(args).unwrap();
 }
 
 fn run(args: Args) -> Result<()> {
     let arg_clone = args.clone();
     let proc = args.cmd.map(|cmd| {
-        let command = Command::new(cmd).args(args.cmd_args).spawn().unwrap();
+        let command = Command::new(cmd).args(args.args).spawn().unwrap();
         command
     });
 
