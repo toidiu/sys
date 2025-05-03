@@ -5,21 +5,13 @@ pub mod plot;
 pub mod record;
 
 #[derive(Debug)]
-pub struct StatSample {
+struct StatSample {
     ts_ms: Instant,
     cpu: f32,
     net: Vec<NetworkStatInfo>,
 }
 
 impl StatSample {
-    pub fn fake(cpu: f32, ts: Instant) -> Self {
-        StatSample {
-            ts_ms: ts,
-            cpu,
-            net: Vec::new(),
-        }
-    }
-
     fn new(ts: Instant) -> Self {
         StatSample {
             ts_ms: ts,

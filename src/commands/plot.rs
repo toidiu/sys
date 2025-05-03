@@ -1,30 +1,45 @@
 use crate::cli::Plot as PlotCmd;
-use crate::commands::StatSample;
-use crate::Instant;
 use plotly::{layout::GridPattern, layout::Layout, layout::LayoutGrid, Scatter};
-use std::time::Duration;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
 
-// TODO parse file and plot data
 pub fn parse_data(plot_cmd: PlotCmd) -> Vec<StatSample> {
-    let mut samples = Vec::new();
-    let start = Instant::now();
+    let file = File::open(&plot_cmd.file).unwrap();
 
-    samples.push(StatSample::fake(2.0, start - Duration::from_secs(1)));
-    samples.push(StatSample::fake(5.0, start - Duration::from_secs(2)));
-    samples.push(StatSample::fake(2.0, start - Duration::from_secs(3)));
-    samples.push(StatSample::fake(9.0, start - Duration::from_secs(4)));
+    let mut samples = Vec::new();
+
+    let mut lines = BufReader::new(file).lines();
+    // remove the units header
+    lines.next();
+
+    for line in lines {
+        let sample = StatSample::parse(line.unwrap());
+        samples.push(sample);
+    }
+
     samples
 }
 
 pub fn plot(samples: Vec<StatSample>) {
     let mut plot = plotly::Plot::new();
 
-    // TODO
-    let name = "data1";
-
-    let ts_ms = samples.iter().map(|sample| sample.ts()).collect();
+    let ts_ms: Vec<u64> = samples.iter().map(|sample| sample.ts).collect();
     let cpu = samples.iter().map(|sample| sample.cpu).collect();
-    let trace = Scatter::new(ts_ms, cpu).name(name).x_axis("x").y_axis("y");
+    let rx = samples.iter().map(|sample| sample.rx).collect();
+    let tx = samples.iter().map(|sample| sample.tx).collect();
+
+    let trace = Scatter::new(ts_ms.clone(), cpu)
+        .name("cpu")
+        .x_axis("x")
+        .y_axis("y");
+    plot.add_trace(trace);
+    let trace = Scatter::new(ts_ms.clone(), rx)
+        .name("rx")
+        .x_axis("x")
+        .y_axis("y");
+    plot.add_trace(trace);
+    let trace = Scatter::new(ts_ms, tx).name("tx").x_axis("x").y_axis("y");
     plot.add_trace(trace);
 
     let layout = Layout::new()
@@ -38,8 +53,34 @@ pub fn plot(samples: Vec<StatSample>) {
                 .pattern(GridPattern::Independent),
         );
     plot.set_layout(layout);
-    // if show {
     plot.show();
-    // }
-    // println!("{}", plot.to_inline_html(Some("simple_subplot")));
+}
+
+#[derive(Debug)]
+pub struct StatSample {
+    ts: u64,
+    cpu: f32,
+    network_interface: String,
+    rx: u64,
+    tx: u64,
+}
+
+impl StatSample {
+    fn parse(s: String) -> Self {
+        let mut s = s.split(',').map(|s| String::from(s.trim()));
+
+        let ts: u64 = s.next().unwrap().parse().unwrap();
+        let cpu = s.next().unwrap().parse().unwrap();
+        let network_interface = s.next().unwrap().parse().unwrap();
+        let rx = s.next().unwrap().parse().unwrap();
+        let tx = s.next().unwrap().parse().unwrap();
+
+        StatSample {
+            ts: ts / 1000,
+            cpu,
+            network_interface,
+            rx,
+            tx,
+        }
+    }
 }

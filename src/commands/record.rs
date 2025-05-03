@@ -56,6 +56,7 @@ impl StatContext {
     }
 
     fn collect(&mut self, is_running: Arc<AtomicBool>, record_cmd: Record) {
+        // This is stripped when plotting.
         println!("elapsed_ms, pid, cpu, [[net, rx, tx], ...]");
 
         self.system.refresh_networks_list();

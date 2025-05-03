@@ -33,7 +33,7 @@ pub struct Record {
 #[derive(Clone, Debug, Parser)]
 pub struct Plot {
     /// File path
-    file: String,
+    pub file: String,
     // /// Dir path
     // dir: String,
 }

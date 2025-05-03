@@ -1,7 +1,6 @@
 use crate::cli::App;
 use crate::cli::Commands;
 use clap::Parser;
-use std::time::Instant;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 pub type Error = Box<dyn std::error::Error>;
@@ -13,7 +12,6 @@ fn main() {
     let app = App::parse();
     match app.command {
         Commands::Record(record) => {
-            // println!("Command: {:?} {:?}", record.cmd, record.args);
             commands::record::run(record).unwrap();
         }
         Commands::Plot(plot) => {
