@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
-pub fn read_samples(plot_cmd: PlotCmd) -> Vec<StatSample> {
+pub fn read_samples(plot_cmd: &PlotCmd) -> Vec<StatSample> {
     let file = File::open(&plot_cmd.file).unwrap();
 
     let mut samples = Vec::new();
@@ -21,34 +21,38 @@ pub fn read_samples(plot_cmd: PlotCmd) -> Vec<StatSample> {
     samples
 }
 
-pub fn plot(samples: Vec<StatSample>) {
+pub fn plot(plot_cmd: &PlotCmd, samples: Vec<StatSample>) {
     let mut plot = plotly::Plot::new();
 
+    let title = format!("{}", plot_cmd.file);
     let ts_ms: Vec<u64> = samples.iter().map(|sample| sample.ts).collect();
 
     // CPU
     let cpu = samples.iter().map(|sample| sample.cpu).collect();
     let trace = Scatter::new(ts_ms.clone(), cpu)
-        .name("cpu")
+        .name("cpu%")
         .x_axis("x")
         .y_axis("y");
     plot.add_trace(trace);
 
     // RX
-    let rx = samples.iter().map(|sample| sample.rx).collect();
+    let rx = samples.iter().map(|sample| sample.rx / 1000).collect();
     let trace = Scatter::new(ts_ms.clone(), rx)
-        .name("rx")
+        .name("rx (Kb)")
         .x_axis("x")
         .y_axis("y");
     plot.add_trace(trace);
 
     // TX
-    let tx = samples.iter().map(|sample| sample.tx).collect();
-    let trace = Scatter::new(ts_ms, tx).name("tx").x_axis("x").y_axis("y");
+    let tx = samples.iter().map(|sample| sample.tx / 1000).collect();
+    let trace = Scatter::new(ts_ms, tx)
+        .name("tx (Kb)")
+        .x_axis("x")
+        .y_axis("y");
     plot.add_trace(trace);
 
     let layout = Layout::new()
-        .title(format!("{} ({})", "title", "units").as_str())
+        .title(title.as_str())
         .show_legend(true)
         .height(1000)
         .grid(
