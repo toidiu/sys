@@ -1,55 +1,78 @@
-use crate::cli::Plot as PlotCmd;
+use crate::stats::cdf;
 use plotly::{layout::GridPattern, layout::Layout, layout::LayoutGrid, Scatter};
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::path::Path;
 
-pub fn read_samples(plot_cmd: &PlotCmd) -> Vec<StatSample> {
-    let file = File::open(&plot_cmd.file).unwrap();
-
-    let mut samples = Vec::new();
+pub fn read_samples(filename: impl AsRef<Path>) -> Stats {
+    let file = File::open(&filename).unwrap();
 
     let mut lines = BufReader::new(file).lines();
     // remove the units header
-    lines.next();
+    let legend = lines.next().expect("expected a non-empty file").unwrap();
+    let legend = legend.split(',').map(|s| String::from(s.trim())).collect();
 
+    let filename: &Path = filename.as_ref();
+    let mut stats = Stats {
+        filename: filename.to_string_lossy().into_owned(),
+        legend,
+        values: Vec::new(),
+    };
+
+    let legend_len = stats.legend.len();
     for line in lines {
-        let sample = StatSample::parse(line.unwrap());
-        samples.push(sample);
+        let line = line.unwrap();
+
+        // NEW
+        let mut values_instance = Vec::new();
+
+        let mut split_values = line.split(',').map(|s| String::from(s.trim()));
+        for _ in 0..legend_len {
+            let val: usize = split_values.next().unwrap().parse().unwrap();
+            values_instance.push(val);
+        }
+
+        stats.values.push(values_instance);
     }
 
-    samples
+    stats
 }
 
-pub fn plot(plot_cmd: &PlotCmd, samples: Vec<StatSample>) {
+#[derive(Debug)]
+pub struct Stats {
+    pub filename: String,
+    pub legend: Vec<String>,
+    pub values: Vec<Vec<usize>>,
+}
+
+pub fn plot(stats: Stats) {
     let mut plot = plotly::Plot::new();
 
-    let title = format!("{}", plot_cmd.file);
-    let ts_ms: Vec<u64> = samples.iter().map(|sample| sample.ts).collect();
+    let title = format!("{}", stats.filename);
 
-    // CPU
-    let cpu = samples.iter().map(|sample| sample.cpu).collect();
-    let trace = Scatter::new(ts_ms.clone(), cpu)
-        .name("cpu%")
-        .x_axis("x")
-        .y_axis("y");
-    plot.add_trace(trace);
+    // x axis
+    let x_name = stats.legend[0].clone();
+    let x_values: Vec<usize> = stats.values.iter().map(|v| v[0]).collect();
 
-    // RX
-    let rx = samples.iter().map(|sample| sample.rx / 1000).collect();
-    let trace = Scatter::new(ts_ms.clone(), rx)
-        .name("rx (Kb)")
-        .x_axis("x")
-        .y_axis("y");
-    plot.add_trace(trace);
+    // y axis
+    let mut metrics = Vec::new();
+    let legend_len = stats.legend.len();
+    for i in 1..legend_len {
+        let metric: Vec<usize> = stats.values.iter().map(|v| v[i]).collect();
+        metrics.push(metric);
+    }
 
-    // TX
-    let tx = samples.iter().map(|sample| sample.tx / 1000).collect();
-    let trace = Scatter::new(ts_ms, tx)
-        .name("tx (Kb)")
-        .x_axis("x")
-        .y_axis("y");
-    plot.add_trace(trace);
+    let legend_plus_metrics = stats.legend.iter().skip(1).zip(metrics);
+
+    for (legend, metrics) in legend_plus_metrics {
+        // let cpu = samples.iter().map(|sample| sample.cpu).collect();
+        let trace = Scatter::new(x_values.clone(), metrics)
+            .name(legend)
+            .x_axis("x")
+            .y_axis("y");
+        plot.add_trace(trace);
+    }
 
     let layout = Layout::new()
         .title(title.as_str())
@@ -65,31 +88,40 @@ pub fn plot(plot_cmd: &PlotCmd, samples: Vec<StatSample>) {
     plot.show();
 }
 
-#[derive(Debug)]
-pub struct StatSample {
-    ts: u64,
-    cpu: f32,
-    network_interface: String,
-    rx: u64,
-    tx: u64,
-}
+pub fn gen_cdf(stats: &[Stats]) {
+    let legend = stats[0].legend.clone();
+    let legend_len = legend.len();
 
-impl StatSample {
-    fn parse(s: String) -> Self {
-        let mut s = s.split(',').map(|s| String::from(s.trim()));
+    let mut plot = plotly::Plot::new();
 
-        let ts: u64 = s.next().unwrap().parse().unwrap();
-        let cpu = s.next().unwrap().parse().unwrap();
-        let network_interface = s.next().unwrap().parse().unwrap();
-        let rx = s.next().unwrap().parse().unwrap();
-        let tx = s.next().unwrap().parse().unwrap();
+    for idx in 1..legend_len {
+        let title = format!("{}", legend[idx]);
 
-        StatSample {
-            ts: ts / 1000,
-            cpu,
-            network_interface,
-            rx,
-            tx,
+        let mut x: Vec<f64> = Vec::new();
+        for stat in stats.iter() {
+            let temp: Vec<f64> = stat.values.iter().map(|v| v[idx] as f64).collect();
+
+            x.extend_from_slice(&temp);
         }
+
+        let x = cdf(&x);
+        let (x, y): (Vec<_>, Vec<_>) = x.into_iter().map(|(a, b)| (a, b)).unzip();
+
+        // Graph
+        let trace = Scatter::new(x, y).name(&title).x_axis("x").y_axis("y");
+        plot.add_trace(trace);
     }
+
+    let layout = Layout::new()
+        .title("cdf")
+        .show_legend(true)
+        .height(1000)
+        .grid(
+            LayoutGrid::new()
+                .rows(1)
+                .columns(1)
+                .pattern(GridPattern::Independent),
+        );
+    plot.set_layout(layout);
+    plot.show();
 }

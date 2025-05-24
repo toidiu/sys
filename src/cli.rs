@@ -30,10 +30,38 @@ pub struct Record {
     pub network_interface: Option<String>,
 }
 
-#[derive(Clone, Debug, Parser)]
+// #[derive(Clone, Debug, Parser)]
+#[derive(Debug, clap::Args, Clone)]
+#[clap(name = "plot")]
 pub struct Plot {
+    /// source
+    #[clap(flatten)]
+    pub source: SourceGroup,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+#[group(required = true, multiple = false)]
+pub struct SourceGroup {
     /// File path
-    pub file: String,
-    // /// Dir path
-    // dir: String,
+    #[arg(short, long)]
+    pub file: Option<String>,
+
+    /// Dir path
+    #[clap(short, long)]
+    pub dir: Option<String>,
+}
+
+impl SourceGroup {
+    pub fn get_one(&self) -> Source {
+        match (&self.dir, &self.file) {
+            (Some(dir), None) => Source::Dir(&dir),
+            (None, Some(file)) => Source::File(&file),
+            (Some(_), Some(_)) | (None, None) => unreachable!(),
+        }
+    }
+}
+
+pub enum Source<'a> {
+    File(&'a str),
+    Dir(&'a str),
 }
