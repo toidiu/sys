@@ -20,26 +20,39 @@ fn main() {
             commands::record::run(record).unwrap();
         }
         Commands::Plot(plot) => match plot.source.get_one() {
-            cli::Source::File(filename) => {
-                let stats = commands::plot::read_samples(filename.to_owned());
-                commands::plot::plot(stats);
-            }
-            cli::Source::Dir(dir) => {
-                let paths = fs::read_dir(dir).unwrap();
+            source @ cli::Source::File(filename) => {
+                let stats = commands::plot::read_samples(&plot, filename.to_owned(), &source);
 
+                if plot.graph {
+                    commands::plot::graph(&stats);
+                }
+
+                if plot.cdf {
+                    gen_cdf(&[stats]);
+                }
+            }
+            source @ cli::Source::Dir(dir) => {
                 let mut stats = Vec::new();
+
+                let paths = fs::read_dir(dir).unwrap();
                 for path in paths {
                     let path = path.unwrap();
                     if !is_hidden(&path) {
-                        println!("Name: {}", path.path().display());
-                        let stat = commands::plot::read_samples(path.path());
+                        println!("... processing file: {}", path.path().display());
+                        let stat = commands::plot::read_samples(&plot, path.path(), &source);
                         stats.push(stat);
-
-                        // commands::plot::plot(stats);
                     }
                 }
 
-                gen_cdf(&stats);
+                if plot.graph {
+                    for stat in stats.iter() {
+                        commands::plot::graph(stat);
+                    }
+                }
+
+                if plot.cdf {
+                    gen_cdf(&stats);
+                }
             }
         },
     }

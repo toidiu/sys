@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-plotly = "0.12.1"
-serde = "1.0.219"
+plotly = "0.12"
+serde = "1"
 clap = { version = "4", features = ["derive"] }
 sysinfo = "0.26"
+regex = "1"

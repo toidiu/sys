@@ -37,17 +37,29 @@ pub struct Plot {
     /// source
     #[clap(flatten)]
     pub source: SourceGroup,
+
+    /// filter out lines that start with this pattern
+    #[arg(short, long)]
+    pub filter: Vec<String>,
+
+    // Plot the Cumulative distribution function
+    #[arg(short, long, default_value = "true")]
+    pub cdf: bool,
+
+    // Plot each metric
+    #[arg(short, long, default_value = "false")]
+    pub graph: bool,
 }
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(required = true, multiple = false)]
 pub struct SourceGroup {
     /// File path
-    #[arg(short, long)]
+    #[arg(long)]
     pub file: Option<String>,
 
     /// Dir path
-    #[clap(short, long)]
+    #[clap(long)]
     pub dir: Option<String>,
 }
 
@@ -64,4 +76,12 @@ impl SourceGroup {
 pub enum Source<'a> {
     File(&'a str),
     Dir(&'a str),
+}
+impl<'a> Source<'a> {
+    pub fn display(&self) -> String {
+        match self {
+            Source::File(f) => f.to_string(),
+            Source::Dir(d) => d.to_string(),
+        }
+    }
 }
