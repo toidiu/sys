@@ -43,11 +43,11 @@ pub struct Plot {
     pub filter: Vec<String>,
 
     // Plot the Cumulative distribution function
-    #[arg(short, long, default_value = "true")]
+    #[arg(long, default_value = "true")]
     pub cdf: bool,
 
     // Plot each metric
-    #[arg(short, long, default_value = "false")]
+    #[arg(long, default_value = "false")]
     pub graph: bool,
 }
 

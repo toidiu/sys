@@ -26,7 +26,7 @@ pub fn read_samples(arg: &Plot, filename: impl AsRef<Path>, source: &Source) -> 
     };
 
     let legend_len = stats.legend.len();
-    for line in lines {
+    for (i, line) in lines.enumerate() {
         let line = line.unwrap();
 
         let mut split_values = line.split(',').map(|s| String::from(s.trim()));
@@ -34,7 +34,12 @@ pub fn read_samples(arg: &Plot, filename: impl AsRef<Path>, source: &Source) -> 
         // Collect the values from this line
         let mut line_values = Vec::new();
         for _ in 0..legend_len {
-            let val: usize = split_values.next().unwrap().parse().unwrap();
+            let val = split_values.next().and_then(|value| value.parse().ok());
+            if val.is_none() {
+                eprintln!("------- {:?} line:{} {:?}", val, i, line);
+            }
+
+            let val = val.unwrap();
             line_values.push(val);
         }
 
